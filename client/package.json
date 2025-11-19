@@ -1,6 +1,6 @@
 {
-  "name": "timetable-client",
-  "version": "0.1.0",
+  "name": "timetable-management-frontend",
+  "version": "1.0.0",
   "proxy": "http://localhost:5000",
   "private": true,
   "dependencies": {
