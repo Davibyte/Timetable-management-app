@@ -25,8 +25,7 @@ MongoDB
 npm package manager
 Git
 1. Clone Repository
-   git clone https://github.com/SamanthaNK/internet-programming.git
-   cd smart-finance-tracker-mern
+   git clone https://github.com/Davibyte/Timetable-management-app.git
 2. Backend Setup
    # Navigate to server directory
    cd server
@@ -65,35 +64,12 @@ Server will run on http://localhost:5000
    npm start
 Client will run on http://localhost:3000
 
-Project Structure
-smart-finance-tracker/
-├── server/                          # Backend (Node.js + Express)
-│   ├── controllers/                 # Route controllers
-│   ├── middleware/                  # Custom middleware
-│   ├── models/                      # Mongoose schemas
-│   ├── routes/                      # API routes
-│   ├── scripts/                     # Utility scripts
-│   ├── server.js                    # Express app entry
-│   └── package.json                 # Backend dependencies
-│
-├── client/                          # Frontend (React)
-│   ├── public/                      # Static files
-│   ├── src/
-│   │   ├── components/              # Reusable components
-│   │   ├── context/                 # React Context
-│   │   ├── pages/                   # Page components
-│   │   ├── services/                # API services
-│   │   ├── App.js                   # Main app component
-│   │   ├── index.js                 # React entry point
-│   │   └── index.css                # Global styles (Tailwind)
-│   ├── package.json                 # Frontend dependencies
-│   └── tailwind.config.js           # Tailwind configuration
-│
-└── .gitignore                       # Git ignore file
 Team
 Samantha Ngong @SamanthaNK
 Davida Assene @Davibyte
 Pearly Kusona @Pearly-Kusona25
+Bless Nsango @NsangoBless
 Status:
 Project currently under development.
+
 
