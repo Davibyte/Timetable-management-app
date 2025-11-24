@@ -1,228 +1,324 @@
-const authService = require('../services/authService');
-const { validationResult } = require('express-validator');
-
+const User = require('../models/userModel');
+const { getRedisClient } = require('../config/redis');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const crypto = require('crypto');
 
 // Register new user
-const register = async (req, res, next) => {
+exports.register = async (req, res) => {
     try {
-        const { firstName, lastName, email, password, role, department, phoneNumber } = req.body;
+        const { firstName, lastName, email, password, role, department } = req.body;
 
-        // Validate input
-        if (!firstName || !lastName || !email || !password) {
+        // Check if user exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
             return res.status(400).json({
-                status: 'error',
-                message: 'Please provide all required fields'
+                success: false,
+                message: 'User with this email already exists'
             });
         }
 
-        const result = await authService.register({
+        // Create user
+        const user = await User.create({
             firstName,
             lastName,
             email,
             password,
-            role,
-            department,
-            phoneNumber
+            role: role || 'student',
+            department
         });
+
+        // Generate email verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+        // Store verification token in Redis (expires in 1 hour)
+        await getRedisClient().setEx(
+            `verify:${hashedToken}`,
+            3600,
+            user._id.toString()
+        );
+
+        // Send verification email
+        await sendVerificationEmail(user.email, verificationToken);
 
         res.status(201).json({
-            status: 'success',
+            success: true,
             message: 'Registration successful. Please check your email to verify your account.',
-            data: result
+            data: {
+                user: {
+                    id: user._id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    role: user.role
+                }
+            }
         });
     } catch (error) {
-        next(error);
+        console.error('Register error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Registration failed'
+        });
     }
-}
+};
+
+// Verify Email
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Check if token exists in Redis
+        const userId = await getRedisClient().get(`verify:${hashedToken}`);
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired verification token'
+            });
+        }
+
+        // Update user as verified
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        user.isActive = true;
+        await user.save();
+
+        // Delete verification token from Redis
+        await getRedisClient().del(`verify:${hashedToken}`);
+
+        res.status(200).json({
+            success: true,
+            message: 'Email verified successfully. You can now login.'
+        });
+    } catch (error) {
+        console.error('Verify email error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Email verification failed'
+        });
+    }
+};
 
 // Login user
-const login = async (req, res, next) => {
+exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        // Validate input
         if (!email || !password) {
             return res.status(400).json({
-                status: 'error',
+                success: false,
                 message: 'Please provide email and password'
             });
         }
 
-        const result = await authService.login(email, password);
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Login successful',
-            data: result
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-// Logout user
-const logout = async (req, res, next) => {
-    try {
-        const token = req.headers.authorization?.split(' ')[1];
-
-        if (token) {
-            await authService.logout(token);
-        }
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Logout successful'
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-// Forgot password
-const forgotPassword = async (req, res, next) => {
-    try {
-        const { email } = req.body;
-
-        if (!email) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Please provide your email address'
+        // Check if user exists and get password
+        const user = await User.findOne({ email }).select('+password');
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
             });
         }
 
-        await authService.forgotPassword(email);
+        // Check if account is active
+        if (!user.isActive) {
+            return res.status(401).json({
+                success: false,
+                message: 'Please verify your email before logging in'
+            });
+        }
+
+        // Verify password
+        const isPasswordCorrect = await user.comparePassword(password);
+        if (!isPasswordCorrect) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
+            });
+        }
+
+        // Update last login
+        user.lastLogin = Date.now();
+        await user.save();
+
+        // Generate token
+        const token = user.generateToken();
+
+        // Cache user session in Redis (expires in 7 days)
+        await getRedisClient().setEx(
+            `session:${user._id}`,
+            604800,
+            JSON.stringify({
+                id: user._id,
+                email: user.email,
+                role: user.role
+            })
+        );
 
         res.status(200).json({
-            status: 'success',
+            success: true,
+            message: 'Login successful',
+            data: {
+                token,
+                user: {
+                    id: user._id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    role: user.role,
+                    department: user.department
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Login failed'
+        });
+    }
+};
+
+
+// Logout user
+exports.logout = async (req, res) => {
+    try {
+        // Remove session from Redis
+        await getRedisClient().del(`session:${req.user._id}`);
+
+        res.status(200).json({
+            success: true,
+            message: 'Logout successful'
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Logout failed'
+        });
+    }
+};
+
+// Forgot password
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'No user found with this email'
+            });
+        }
+
+        // Generate reset token
+        const resetToken = user.getResetToken();
+        await user.save();
+
+        // Store reset token in Redis (expires in 1 hour)
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        await getRedisClient().setEx(
+            `reset:${hashedToken}`,
+            3600,
+            user._id.toString()
+        );
+
+        // Send reset email
+        await sendPasswordResetEmail(user.email, resetToken);
+
+        res.status(200).json({
+            success: true,
             message: 'Password reset link sent to your email'
         });
     } catch (error) {
-        next(error);
+        console.error('Forgot password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send reset email'
+        });
     }
-}
+};
 
 // Reset password
-const resetPassword = async (req, res, next) => {
+exports.resetPassword = async (req, res) => {
     try {
         const { token } = req.params;
         const { password } = req.body;
 
-        if (!password) {
+        if (!password || password.length < 6) {
             return res.status(400).json({
-                status: 'error',
-                message: 'Please provide a new password'
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                status: 'error',
+                success: false,
                 message: 'Password must be at least 6 characters'
             });
         }
 
-        await authService.resetPassword(token, password);
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        res.status(200).json({
-            status: 'success',
-            message: 'Password reset successful. Please login with your new password.'
-        });
-    } catch (error) {
-        next(error);
-    }
-}
+        // Check if token exists in Redis
+        const userId = await getRedisClient().get(`reset:${hashedToken}`);
 
-// Verify email
-const verifyEmail = async (req, res, next) => {
-    try {
-        const { token } = req.params;
-
-        await authService.verifyEmail(token);
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Email verified successfully. You can now login.'
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-// Refresh token
-const refreshToken = async (req, res, next) => {
-    try {
-        const { refreshToken } = req.body;
-
-        if (!refreshToken) {
+        if (!userId) {
             return res.status(400).json({
-                status: 'error',
-                message: 'Refresh token is required'
+                success: false,
+                message: 'Invalid or expired reset token'
             });
         }
 
-        const result = await authService.refreshToken(refreshToken);
-
-        res.status(200).json({
-            status: 'success',
-            data: result
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-// Get current user
-const getCurrentUser = async (req, res, next) => {
-    try {
-        const user = await authService.getUserById(req.user.id);
-
-        res.status(200).json({
-            status: 'success',
-            data: { user }
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
-// Update password
-const updatePassword = async (req, res, next) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
-
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Please provide current and new password'
+        // Find user and update password
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
             });
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'New password must be at least 6 characters'
-            });
-        }
+        user.password = password;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
 
-        await authService.updatePassword(req.user.id, currentPassword, newPassword);
+        // Delete reset token from Redis
+        await getRedisClient().del(`reset:${hashedToken}`);
 
         res.status(200).json({
-            status: 'success',
-            message: 'Password updated successfully'
+            success: true,
+            message: 'Password reset successful. You can now login with your new password.'
         });
     } catch (error) {
-        next(error);
+        console.error('Reset password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Password reset failed'
+        });
     }
-}
+};
 
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
 
-module.exports = {
-    register,
-    login,
-    logout,
-    forgotPassword,
-    resetPassword,
-    verifyEmail,
-    refreshToken,
-    getCurrentUser,
-    updatePassword
+        res.status(200).json({
+            success: true,
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        console.error('Get me error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get user data'
+        });
+    }
 };

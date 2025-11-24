@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
     firstName: {
@@ -35,22 +37,12 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    phoneNumber: {
-        type: String,
-        trim: true
-    },
     isActive: {
         type: Boolean,
         default: true
     },
-    isEmailVerified: {
-        type: Boolean,
-        default: false
-    },
     passwordResetToken: String,
     passwordResetExpires: Date,
-    emailVerificationToken: String,
-    emailVerificationExpires: Date,
     lastLogin: Date
 }, {
     timestamps: true
@@ -59,15 +51,30 @@ const userSchema = new mongoose.Schema({
 // Hash password before saving
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
-
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    this.password = await bcrypt.hash(this.password, 10);
     next();
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+// Compare password
+userSchema.methods.comparePassword = async function (password) {
+    return await bcrypt.compare(password, this.password);
+};
+
+// Generate JWT token
+userSchema.methods.generateToken = function () {
+    return jwt.sign(
+        { id: this._id, role: this.role },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRE }
+    );
+};
+
+// Generate password reset token
+userSchema.methods.getResetToken = function () {
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    this.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+    return resetToken;
 };
 
 // Remove password from JSON response

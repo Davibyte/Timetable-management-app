@@ -18,3 +18,58 @@ Tech Stack:
 - Backend: Node.js
 - Database: MongoDB
 
+Installations
+
+Node.js
+MongoDB
+npm package manager
+Git
+1. Clone Repository
+   git clone https://github.com/Davibyte/Timetable-management-app.git
+2. Backend Setup
+   # Navigate to server directory
+   cd server
+
+   # Install dependencies
+   npm install
+
+   # Create .env file
+   touch .env
+
+   # Add environment variables (contact team)
+   # Start MongoDB
+   mongosh
+
+   # Seed default categories
+   node scripts/createDefaultCategories.js
+
+   # Start server
+   npm run dev
+Server will run on http://localhost:5000
+
+3. Frontend Setup
+   # Open new terminal
+   # Navigate to client directory
+   cd client
+
+   # Install dependencies
+   npm install
+
+   # Create .env file
+   touch .env
+
+   # Add environment variables (contact team)
+
+   # Start development server
+   npm start
+Client will run on http://localhost:3000
+
+Team
+Samantha Ngong @SamanthaNK
+Davida Assene @Davibyte
+Pearly Kusona @Pearly-Kusona25
+Bless Nsango @NsangoBless
+Status:
+Project currently under development.
+
+
