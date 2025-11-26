@@ -72,7 +72,45 @@ Client will run on http://localhost:57173
 Full API documentation is available on Postman:
 **[Full API Documentation (Postman)](https://documenter.getpostman.com/view/49640730/2sB3dJzCfL)**
 
-### Project Structure (TO-DO)
+### Project Structure
+```
+TIMETABLE-MANAGEMENT-APP/
+│
+├── client/
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── .env
+│   ├── index.html
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   └── vite.config.js
+│
+├── server/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│   ├── .env
+│   ├── package.json
+│   └── server.js
+│
+├── documentation/
+│   ├── api-documentation/
+│   └── srs/
+│
+├── .gitignore
+└── README.md
+```
 
 ### Team
 Samantha Ngong @SamanthaNK

@@ -6,10 +6,6 @@
 # OS files
 .DS_Store
 Thumbs.db
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
 
 # Temporary files
 *.log
@@ -19,14 +15,20 @@ cache/
 
 # Environment files
 .env
+client/.env
+server/.env
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# Node dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
 
-# testing
-/coverage
-
-# production
+# Production / build
 /build
+client/dist
+server/dist
+
+# Testing
+/coverage
+client/coverage
+server/coverage

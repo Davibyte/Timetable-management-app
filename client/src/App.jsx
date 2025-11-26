@@ -1,62 +1,36 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './components/Toast';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Auth Pages
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
-import VerifyEmail from './pages/auth/VerifyEmail';
-
-// Dashboard Pages (create these later)
-// import AdminDashboard from './pages/dashboard/AdminDashboard';
-// import LecturerDashboard from './pages/dashboard/LecturerDashboard';
-// import StudentDashboard from './pages/dashboard/StudentDashboard';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          {/* Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/verify-email/:token" element={<VerifyEmail />} />
+    <BrowserRouter>
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Dashboard Routes - Uncomment when created */}
-          {/* <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/lecturer/dashboard" element={<LecturerDashboard />} />
-          <Route path="/student/dashboard" element={<StudentDashboard />} /> */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
 
-          {/* Default Route */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* 404 Route */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-
-        {/* Toast Notifications */}
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-          toastStyle={{
-            fontFamily: 'Poppins, sans-serif',
-          }}
-        />
-      </div>
-    </Router>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
